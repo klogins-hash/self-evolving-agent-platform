@@ -16,17 +16,57 @@ sys.path.append('/Users/franksimpson/Downloads/strands-tools/src')
 
 try:
     from strands import Agent
+    # Import core tools that should be available
     from strands_tools import (
-        file_read, file_write, editor, shell, python_repl,
-        calculator, http_request, generate_image, memory,
-        use_browser, use_llm, environment, current_time,
-        think, swarm, workflow, batch, journal, sleep,
-        mem0_memory, retrieve, speak, stop, agent_graph
+        file_read, file_write, calculator, http_request, 
+        current_time, environment, sleep, stop
     )
+    
+    # Try to import optional tools
+    optional_tools = []
+    try:
+        from strands_tools import editor, shell, python_repl
+        optional_tools.extend([editor, shell, python_repl])
+    except ImportError:
+        print("⚠️ Some execution tools not available")
+    
+    try:
+        from strands_tools import think, workflow, batch, journal
+        optional_tools.extend([think, workflow, batch, journal])
+    except ImportError:
+        print("⚠️ Some workflow tools not available")
+    
+    try:
+        from strands_tools import use_llm, generate_image
+        optional_tools.extend([use_llm, generate_image])
+    except ImportError:
+        print("⚠️ Some AI tools not available")
+    
+    try:
+        from strands_tools import memory, mem0_memory, retrieve
+        optional_tools.extend([memory, mem0_memory, retrieve])
+    except ImportError:
+        print("⚠️ Memory tools not available")
+    
+    try:
+        from strands_tools import swarm, agent_graph
+        optional_tools.extend([swarm, agent_graph])
+    except ImportError:
+        print("⚠️ Swarm tools not available")
+    
+    try:
+        from strands_tools import use_browser, speak
+        optional_tools.extend([use_browser, speak])
+    except ImportError:
+        print("⚠️ Browser and speech tools not available")
+    
     STRANDS_AVAILABLE = True
+    print(f"✅ Strands framework loaded with {len(optional_tools)} optional tools")
+    
 except ImportError as e:
-    print(f"⚠️ Strands framework not available: {e}")
+    print(f"❌ Strands framework not available: {e}")
     STRANDS_AVAILABLE = False
+    optional_tools = []
 
 
 @dataclass
@@ -51,29 +91,24 @@ class StrandsAutonomousAgent:
         self.execution_history = []
         self.memory_store = {}
         
-        # Initialize Strands Agent with full toolset
+        # Initialize Strands Agent with available toolset
         if STRANDS_AVAILABLE:
+            # Start with core tools that should always be available
+            available_tools = [
+                file_read, file_write, calculator, http_request, 
+                current_time, environment, sleep, stop
+            ]
+            
+            # Add optional tools that were successfully imported
+            available_tools.extend(optional_tools)
+            
             self.agent = Agent(
                 name=f"AutonomousAgent_{agent_id}",
-                tools=[
-                    # Core tools
-                    file_read, file_write, editor, shell, python_repl,
-                    calculator, http_request, current_time, environment,
-                    
-                    # AI and reasoning tools
-                    use_llm, generate_image, think, memory, mem0_memory,
-                    
-                    # Advanced coordination tools
-                    swarm, workflow, batch, agent_graph,
-                    
-                    # Utility tools
-                    journal, sleep, speak, stop,
-                    
-                    # Web and data tools
-                    use_browser, retrieve
-                ],
+                tools=available_tools,
                 system_prompt=self._get_system_prompt()
             )
+            
+            print(f"✅ Agent initialized with {len(available_tools)} tools")
         else:
             self.agent = None
             
