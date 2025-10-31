@@ -1,0 +1,40 @@
+version: '3.8'
+
+# Local development overrides
+services:
+  backend:
+    environment:
+      - DEBUG=true
+      - RELOAD=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+      - backend_data:/app/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    environment:
+      - CHAINLIT_HOST=0.0.0.0
+      - CHAINLIT_PORT=8001
+    volumes:
+      - ./frontend:/app
+      - ./logs:/app/logs
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend_data:
+    driver: local

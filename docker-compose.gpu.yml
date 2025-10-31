@@ -1,0 +1,89 @@
+version: '3.8'
+
+# GPU-enabled Docker Compose for cloud deployment
+services:
+  backend-gpu:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.gpu
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./agents.db
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-default-secret-key}
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ./backend:/app
+      - agent_data:/app/data
+      - gpu_cache:/root/.cache
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - agent_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend  
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - BACKEND_URL=http://backend-gpu:8000
+    volumes:
+      - ./frontend:/app
+    command: chainlit run app.py --host 0.0.0.0 --port 8001
+    depends_on:
+      - backend-gpu
+    networks:
+      - agent_network
+    restart: unless-stopped
+
+  # Optional: Local GPU model serving
+  model-server:
+    build:
+      context: ./gpu
+      dockerfile: Dockerfile.model-server
+    ports:
+      - "8002:8002"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - MODEL_PATH=/models
+      - BATCH_SIZE=4
+      - MAX_LENGTH=2048
+    volumes:
+      - gpu_models:/models
+      - gpu_cache:/root/.cache
+    networks:
+      - agent_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 16G
+    restart: unless-stopped
+
+volumes:
+  agent_data:
+  gpu_cache:
+  gpu_models:
+
+networks:
+  agent_network:
+    driver: bridge

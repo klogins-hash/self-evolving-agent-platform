@@ -1,0 +1,123 @@
+# AWS ECS Task Definition for GPU-enabled deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-platform-gpu-config
+data:
+  # ECS Task Definition
+  task-definition.json: |
+    {
+      "family": "self-evolving-agent-platform-gpu",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["EC2"],
+      "cpu": "4096",
+      "memory": "16384",
+      "executionRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskExecutionRole",
+      "taskRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskRole",
+      "containerDefinitions": [
+        {
+          "name": "backend-gpu",
+          "image": "your-registry/agent-platform-backend-gpu:latest",
+          "cpu": 3072,
+          "memory": 12288,
+          "essential": true,
+          "portMappings": [
+            {
+              "containerPort": 8000,
+              "protocol": "tcp"
+            }
+          ],
+          "environment": [
+            {
+              "name": "OPENROUTER_API_KEY",
+              "valueFrom": "arn:aws:secretsmanager:region:account:secret:openrouter-api-key"
+            },
+            {
+              "name": "DATABASE_URL",
+              "value": "postgresql://user:pass@rds-endpoint:5432/agents"
+            }
+          ],
+          "resourceRequirements": [
+            {
+              "type": "GPU",
+              "value": "1"
+            }
+          ],
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-group": "/ecs/agent-platform-gpu",
+              "awslogs-region": "us-west-2",
+              "awslogs-stream-prefix": "backend"
+            }
+          }
+        },
+        {
+          "name": "frontend",
+          "image": "your-registry/agent-platform-frontend:latest",
+          "cpu": 1024,
+          "memory": 4096,
+          "essential": true,
+          "portMappings": [
+            {
+              "containerPort": 8001,
+              "protocol": "tcp"
+            }
+          ],
+          "environment": [
+            {
+              "name": "BACKEND_URL",
+              "value": "http://localhost:8000"
+            }
+          ],
+          "dependsOn": [
+            {
+              "containerName": "backend-gpu",
+              "condition": "HEALTHY"
+            }
+          ]
+        }
+      ]
+    }
+
+---
+# AWS CloudFormation template for GPU instances
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Self-Evolving Agent Platform GPU Infrastructure'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: g4dn.xlarge
+    AllowedValues:
+      - g4dn.xlarge    # 1 GPU, 4 vCPU, 16 GB RAM
+      - g4dn.2xlarge   # 1 GPU, 8 vCPU, 32 GB RAM
+      - g4dn.4xlarge   # 1 GPU, 16 vCPU, 64 GB RAM
+      - p3.2xlarge     # 1 GPU, 8 vCPU, 61 GB RAM
+      - p4d.24xlarge   # 8 GPU, 96 vCPU, 1152 GB RAM
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: agent-platform-gpu-cluster
+      CapacityProviders:
+        - EC2
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: EC2
+          Weight: 1
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: agent-platform-gpu-lt
+      LaunchTemplateData:
+        ImageId: ami-0c02fb55956c7d316  # ECS-optimized AMI with GPU support
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_GPU_SUPPORT=true >> /etc/ecs/ecs.config
