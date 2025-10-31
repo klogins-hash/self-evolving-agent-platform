@@ -126,10 +126,10 @@ async def start():
     
     # Welcome message with actions
     actions = [
-        cl.Action(name="dashboard", value="show_dashboard", label="📊 Dashboard"),
-        cl.Action(name="create_agent", value="create_agent", label="🤖 New Agent"),
-        cl.Action(name="create_task", value="create_task", label="📋 New Task"),
-        cl.Action(name="system_health", value="health_check", label="🏥 Health Check"),
+        cl.Action(name="dashboard", value="show_dashboard", label="📊 Dashboard", payload={}),
+        cl.Action(name="create_agent", value="create_agent", label="🤖 New Agent", payload={}),
+        cl.Action(name="create_task", value="create_task", label="📋 New Task", payload={}),
+        cl.Action(name="system_health", value="health_check", label="🏥 Health Check", payload={}),
     ]
     
     welcome_msg = await cl.Message(
@@ -391,8 +391,8 @@ async def show_agents_list():
 """
     
     actions = [
-        cl.Action(name="create_agent", value="create_agent", label="➕ Create New Agent"),
-        cl.Action(name="refresh_agents", value="refresh", label="🔄 Refresh List"),
+        cl.Action(name="create_agent", value="create_agent", label="➕ Create New Agent", payload={}),
+        cl.Action(name="refresh_agents", value="refresh", label="🔄 Refresh List", payload={}),
     ]
     
     await cl.Message(content=content, actions=actions).send()
