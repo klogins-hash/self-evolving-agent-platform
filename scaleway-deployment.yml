@@ -1,0 +1,51 @@
+# Scaleway Deployment Configuration
+# Self-Evolving Agent Platform
+
+# Scaleway Container Registry Configuration
+registry:
+  name: "agent-platform"
+  region: "fr-par"  # Paris region
+  namespace: "agent-platform-mvp"
+
+# Serverless Containers Configuration
+containers:
+  backend:
+    name: "agent-platform-backend"
+    image: "rg.fr-par.scw.cloud/agent-platform-mvp/backend:latest"
+    port: 8000
+    cpu_limit: 1000  # 1 vCPU
+    memory_limit: 2048  # 2GB RAM
+    min_scale: 0
+    max_scale: 10
+    environment:
+      DATABASE_URL: "sqlite:///./agents.db"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+      GROQ_API_KEY: "${GROQ_API_KEY}"
+      SECRET_KEY: "${SECRET_KEY}"
+      DEFAULT_MODEL_PROVIDER: "openrouter"
+      DEFAULT_MODEL_NAME: "auto"
+    
+  frontend:
+    name: "agent-platform-frontend"
+    image: "rg.fr-par.scw.cloud/agent-platform-mvp/frontend:latest"
+    port: 8001
+    cpu_limit: 500   # 0.5 vCPU
+    memory_limit: 1024  # 1GB RAM
+    min_scale: 0
+    max_scale: 5
+    environment:
+      BACKEND_URL: "https://agent-platform-backend-${NAMESPACE_ID}.functions.fnc.fr-par.scw.cloud"
+      CHAINLIT_HOST: "0.0.0.0"
+      CHAINLIT_PORT: "8001"
+
+# Optional: Managed Database
+database:
+  name: "agent-platform-db"
+  engine: "PostgreSQL-15"
+  node_type: "db-dev-s"  # Development instance
+  region: "fr-par"
+  
+# Optional: Object Storage for file uploads
+storage:
+  bucket_name: "agent-platform-storage"
+  region: "fr-par"

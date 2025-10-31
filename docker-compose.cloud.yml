@@ -1,0 +1,100 @@
+version: '3.8'
+
+# Docker Cloud Build Configuration
+services:
+  backend:
+    image: klogins313/agent-platform-backend:latest
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    ports:
+      - "8080:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./agents.db
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-cloud-secret-key-12345}
+    volumes:
+      - agent_data:/app/data
+      - ./logs:/app/logs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - agent_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: klogins313/agent-platform-frontend:latest
+    build:
+      context: ./frontend  
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    ports:
+      - "8001:8001"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - CHAINLIT_HOST=0.0.0.0
+      - CHAINLIT_PORT=8001
+    volumes:
+      - ./logs:/app/logs
+    command: chainlit run app.py --host 0.0.0.0 --port 8001
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agent_network
+    restart: unless-stopped
+
+  # Optional: GPU-enabled backend for cloud GPU instances
+  backend-gpu:
+    image: klogins313/agent-platform-backend-gpu:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gpu
+      platforms:
+        - linux/amd64
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./agents.db
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - agent_data:/app/data
+      - gpu_cache:/root/.cache
+    networks:
+      - agent_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - gpu
+    restart: unless-stopped
+
+volumes:
+  agent_data:
+    driver: local
+  gpu_cache:
+    driver: local
+
+networks:
+  agent_network:
+    driver: bridge
