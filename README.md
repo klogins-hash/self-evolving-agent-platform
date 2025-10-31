@@ -2,12 +2,19 @@
 
 A self-evolving AI agent platform that builds and manages its own agent swarm with dual-agent architecture.
 
+## 🚀 **LIVE DEMO** 
+
+**✅ Currently deployed and running:**
+- **Backend API**: http://51.15.214.182:8000
+- **Frontend UI**: http://51.15.214.182:8001  
+- **API Docs**: http://51.15.214.182:8000/docs
+
 ## 🚀 Quick Start (Docker)
 
 ```bash
 # Clone and setup
-git clone <repository-url>
-cd self-evolving-agent-platform/mvp
+git clone https://github.com/klogins-hash/self-evolving-agent-platform.git
+cd self-evolving-agent-platform
 
 # One-command deployment
 make deploy
