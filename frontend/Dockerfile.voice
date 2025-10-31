@@ -1,0 +1,38 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    git \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY voice_requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY voice_chief_of_staff.py ./app.py
+COPY strands_autonomous_agent.py ./strands_autonomous_agent.py
+COPY public/ ./public/
+
+# Create necessary directories
+RUN mkdir -p /app/public /app/voice_data
+
+# Set environment variables
+ENV CARTESIA_API_KEY=sk_car_J5wk4g3bzwyggQ6uBftGMC
+ENV GROQ_API_KEY=sk_tJQnZOUODPqop1xXCTmMWGdyb3FYRIbdulKixQ66ktznQ80JcB9o
+ENV E2B_API_KEY=e2b_08cd803fb0f53235473753396ec7e5c987cdd8fd
+
+# Expose port
+EXPOSE 8005
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8005/ || exit 1
+
+# Run the Voice Chief of Staff
+CMD ["chainlit", "run", "app.py", "--host", "0.0.0.0", "--port", "8005"]
